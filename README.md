@@ -353,16 +353,265 @@ The smoothing class has a single parameter, alpha, which controls how much influ
 
 ## 3D rendering using off-axis projection
 
-So far, we have created the steps to get 3D coordinates for the midpoint of the eyes relative to the display. Now the next step is to use this information to modify the perspective of the image displayed on the screen. 
+So far, we have created the steps to get 3D coordinates for the midpoint of the eyes relative to the display. Now the next step is to use this information to modify the perspective of the image displayed on the screen. Traditionally for 3D visualizations it is assumed that the person sits directly in front of the screen, this is the normal on-axis projection (visualized from the top):
 
-<p align="center"><img src="./images/frustum-normal.png" width="80%"></p>
+<p align="center"><img src="./images/frustum-normal.png" width="50%"></p>
 
+When the person in front of the screen moves, it's not the same as moving the virtual camera in the 3D environment. Instead, we need to change the view frustum (truncated pyramid) to be skewed. This is called off-axis projection. What the person can see will not be symmetric to the center of the screen:
 
-<p align="center"><img src="./images/frustum-off-axis.png" width="80%"></p>
+<p align="center"><img src="./images/frustum-off-axis.png" width="50%"></p>
 
+As can be seen above, new objects may become visible (red and purple circles) and existing ones will be visible from a different perspective (yellow objects). This is how off-axis projection works. For almost all 3D frameworks, it is possible to configure such a skewed frustum. In OpenGL the view frustum can be configured with the following parameters. The virtual camera is located at the top of the pyramid. The left and right (and top and bottom) values define the slope of the sides and together with the near and far planes define the visible space. Anything between the near and far planes will be visible, anything outside it won't. 
 
-<p align="center"><img src="./images/frustum-params.png" width="80%"></p>
+<p align="center"><img src="./images/frustum-params.png" width="50%"></p>
+
+If you are interested in more complicated projections, I recommend Robert Kooima's [Generalized Perspective Projection paper](http://160592857366.free.fr/joe/ebooks/ShareData/Generalized%20Perspective%20Projection.pdf). The thing to remember about off-axis projection is that the left, right, top, bottom, near and far variables control the projection. In OpenGL, this is achieved by the [`glFrustum` function](https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glFrustum.xml).
+
+To get started with coding a 3D visualization, we need to create a new class which inherits from `QOpenGLWidget`. This class will house the OpenGL code. In the constructor, we initialize the variables we will use to store the coordinates of the person's eye midpoint (`coord_x`, `coord_y`, `coord_z`). We will multiple scenes we can switch between, so we need to store which scene is currently displayed (`scene_idx`) as well as the total number of scenes (`num_scenes`). Finally, we need a variable we will use for animations (`animation_idx`) and the aspect ratio of the display (`h_w_ratio`):
+
+``` python
+
+class GLWidget(QOpenGLWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.coord_x = 0
+        self.coord_y = 0
+        self.coord_z = 0
+
+        self.scene_idx = 1
+        self.num_scenes = 6
+        self.animation_idx = 0
+        self.h_w_ratio = MONITOR_SCREEN_HEIGHT / MONITOR_SCREEN_WIDTH
+```
+
+Next, we have some inherited functions from the parent class we need to implement. A function is also created for setting up the off-axis projection, though we will use the `glFrustum` directly too:
+
+``` python
+    def initializeGL(self):
+        glClearColor(0.0, 0.0, 0.0, 1.0)
+        glEnable(GL_DEPTH_TEST)
+
+    def resizeGL(self, w, h):
+        glViewport(0, 0, w, h)
+        self.set_off_axis_projection(-1, 1, -1, 1, 1, 1000)
+
+    def set_off_axis_projection(self, left, right, bottom, top, near, far):
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        glFrustum(left, right, bottom, top, near, far)
+        glMatrixMode(GL_MODELVIEW)
+```
+
+Our widget will need to receive updated coordinate information from the outside and then update the displayed image. We will also need a way to change the scene that is displayed:
+
+``` python
+    def set_frustum(self, x, y, z):
+        self.coord_x = x
+        self.coord_y = y
+        self.coord_z = z
+        self.update()
+
+    def change_scene(self):
+        self.scene_idx = (self.scene_idx + 1) % self.num_scenes
+```
+
+Finally, we need to implement the most important inherited function, `paintGL`. Here, we calculate the frustum offset based on the real-world coordinates of the person and the monitor's size. The left value will be the `x_offset` variable we calculate, the right will be `x_offset-1`. Note that if you were to substitute the edge coordinates of the display (`MONITOR_SCREEN_WIDTH / 2` and `-MONITOR_SCREEN_WIDTH / 2`) you would get (0, -1) and (1,0), right angled triangles along the x-z plane. The calculation of the `y_offset` is similar, the only difference there is that the extent of the frustum is scaled by the aspect ratio. Finally, the z coordinate will determine the near plane, that's how I chose to control frustum's flatness. As the person gets closer to the screen, it will show more depth. The depth range needs to be inverted due to the other parameters of the frustum. Finally, the actual scene drawing part will happen inside the `draw_scene` function.
+
+``` python
+
+    def paintGL(self):
+        x_offset = 0.5 + (-self.coord_x / (MONITOR_SCREEN_WIDTH / 2)) / 2
+        y_offset = self.h_w_ratio/2 + (-self.coord_y / (MONITOR_SCREEN_HEIGHT / 2)) / 2
+        z = max(0.01, self.coord_z)
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glLoadIdentity()
+        gluLookAt(0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+
+        glFrustum(x_offset, x_offset - 1, y_offset, y_offset - self.h_w_ratio, z, 1000)
+        glDepthRange(1.0, 0.0)
+        self.draw_scene()
+```
+
+To draw multiple shapes which may overlap when displayed, we need to enable blending between them and define how it should be achieved. After that, we can start drawing. Since I am new to OpenGL, I kept the demo to drawing simple shapes, quads and triangles. You can find the full [source code linked to the guide](https://github.com/ndaneil/interactive-3d-screen), so I won't cover every part of the drawing. There are two helper functions I created, one to draw a checkerboard background (`draw_checkerboard_box`) and one to draw octahedrons (`draw_octahedron`). Both are available in the source code. Scene 1 is simple the checkerboard. Scene 2 adds triangles arranged along three axes, each containing ten triangles. For openGL, first `glBegin` needs to be called with the shape type, then shapes can be drawn, finally `glEnd()` needs to be called. For triangles, I needed to set the color and the three vertices for each triangle. 
+
+``` python
+    def draw_scene(self):
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        if self.scene_idx == 0: 
+            # ...
+        elif self.scene_idx == 1:  # 3D checkerboard box
+            self.draw_checkerboard_box()
+        elif self.scene_idx == 2:  # 3D checkerboard box with triangles
+            self.draw_checkerboard_box()
+            glBegin(GL_TRIANGLES)
+            for i in range(10):
+                glColor3f(0.2 + (9-i) * 0.05, 0.6 + (9-i) * 0.05, 1.0)
+                glVertex3f(0.0, -0.15, -0.9 + i * 0.08)
+                glVertex3f(0.15, 0.15, -0.9 + i * 0.08)
+                glVertex3f(-0.15, 0.15, -0.9 + i * 0.08)
+
+                glColor3f(1.0, 0.2 + (9-i) * 0.05, 0.6 + (9-i) * 0.05)
+                glVertex3f(0.5, 0.15, -0.9 + i * 0.08)
+                glVertex3f(0.5, -0.15, -0.9 + i * 0.08)
+                glVertex3f(0.8, 0, -0.9 + i * 0.08)
+
+                glColor3f(0.2 + (9-i) * 0.05, 1.0, 0.6 + (9-i) * 0.05)
+                glVertex3f(-0.5, 0.15, -0.9 + i * 0.08)
+                glVertex3f(-0.5, -0.15, -0.9 + i * 0.08)
+                glVertex3f(-0.8, 0, -0.9 + i * 0.08)
+            glEnd()
+        elif self.scene_idx == 3:  # 3D checkerboard box with triangles #2
+            # ...
+
+```
+
+Scene 3 is similar to scene 2. Scene 4 adds rotation for the triangles. Here is where we utilize the `animation_idx` variable to represent the rotation angle of the triangles. To draw the rotated coordinates, I created a [rotation matrix](https://en.wikipedia.org/wiki/Rotation_matrix) (`rotmat`) and multiplied the original vectors with that. Finally, for scene 5, I drew animated rotating octahedrons.
+
+``` python
+
+        elif self.scene_idx == 4:  # 3D checkerboard box with triangles #3
+            self.draw_checkerboard_box()
+            glBegin(GL_TRIANGLES)
+            self.animation_idx = (self.animation_idx+1) % 360
+            for i in range(8):
+                rotmat = np.array([[np.cos(np.deg2rad(i * 10 + self.animation_idx)), -np.sin(np.deg2rad(i * 10 + self.animation_idx))],
+                                   [np.sin(np.deg2rad(i * 10 + self.animation_idx)), np.cos(np.deg2rad(i * 10 + self.animation_idx))]])
+                rotated_1 = np.matmul(rotmat, np.array([[0.1], [0.15]]))
+                rotated_2 = np.matmul(rotmat, np.array([[0.1], [-0.15]]))
+                rotated_3 = np.matmul(rotmat, np.array([[-0.2], [0.0]]))
+
+                glColor3f(1.0, 0.2 + i * 0.05, 0.3 + i * 0.05)
+                glVertex3f(rotated_1[0, 0], rotated_1[1, 0], -0.9 + i * 0.11)
+                glVertex3f(rotated_2[0, 0], rotated_2[1, 0], -0.9 + i * 0.11)
+                glVertex3f(rotated_3[0, 0], rotated_3[1, 0], -0.9 + i * 0.11)
+            glEnd()
+        elif self.scene_idx == 5:  # 3D checkerboard box with octahedrons
+            self.draw_checkerboard_box()
+            self.animation_idx = (self.animation_idx + 1) % 360
+            rotation = abs(self.animation_idx-180)/4-22.5
+            self.draw_octahedron(0.5, 0, -0.7,
+                                 0.2, 0.4, 0.2,
+                                 0.8, 0.1, 0.2,
+                                 0.6, 0.1, 0.2, np.deg2rad(rotation))
+            self.draw_octahedron(-0.5, 0, -0.7,
+                                 0.2, 0.4, 0.2,
+                                 0.2, 0.1, 0.8,
+                                 0.2, 0.1, 0.6, np.deg2rad(rotation))
+            self.draw_octahedron(0, 0, -0.3,
+                                 0.2, 0.4, 0.2,
+                                 0.3, 0.8, 0.2,
+                                 0.2, 0.6, 0.2, np.deg2rad(-rotation))
+```
+
+The drawing part is almost complete, we just need one more class representing the window we want to display. We can set the window title, the starting size and we can create an instance of our OpenGL widget, setting it as the main widget for the window. We also need to expose the scene and view coordinate changing functions. Finally, to control the application, we can override the `keyPressEvent` function. If the escape key is pressed, the application should be closed. Here videoSource is also referenced which will be an instance of the VideoSource class we have defined earlier. The space key press will be used to switch between the scenes and the `f` key can be used to switch between full-screen and windowed mode.
+
+``` python 
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("3D AI Screen")
+        self.setGeometry(100, 100, 1920, 1080)
+        self.gl_widget = GLWidget(self)
+        self.setCentralWidget(self.gl_widget)
+        self.is_fullscreen = False
+
+    def set_frustum(self, x, y, z):
+        self.gl_widget.set_frustum(x, y, z)
+
+    def change_scene(self):
+        self.gl_widget.change_scene()
+
+    def keyPressEvent(self, event):
+        if event.key() == PySide6.QtCore.Qt.Key.Key_Escape:  # press 'ESC' to quit
+            videoSource.release()
+            cv2.destroyAllWindows()
+            sys.exit()
+        elif event.key() == ord(" "):  # press 'SPACE' to change view
+            view.change_scene()
+        elif event.key() == 70:  # press 'f' to toggle fullscreen mode
+            self.is_fullscreen = not self.is_fullscreen
+            if self.is_fullscreen:
+                self.showFullScreen()
+            else:
+                self.showNormal()
+```
 
 ## Connecting everything together
+
+Now it's time to connect all the component classes we created. First, we crate a QT application with a window and show it. We define the filters we will use for the x, y and z coordinates. We also need an instance of the `VideoSource`, `WebCamTo3DCoordinates` and `FaceDetectorAndLocalizer` classes.
+
+``` python
+app = QApplication(sys.argv)
+view = MainWindow()
+view.show()
+
+xSmoother = ExponentialMovingAverage(0.3)
+ySmoother = ExponentialMovingAverage(0.3)
+zSmoother = ExponentialMovingAverage(0.2)
+
+videoSource = VideoSource()
+webCamTo3D = WebCamTo3DCoordinates()
+
+faceDetectorAndLocalizer = FaceDetectorAndLocalizer()
+```
+
+Next, we need a while loop. We will measure the execution time too, so there will be calls to `time.time()`. First, we capture a frame from the video source. Then, we detect face and landmarks, returning the bounding box and landmark coordinates. Then we can crop the face and blur the rest of the background. This will be used to visualize the detection on a separate window. After drawing the landmarks on the image canvas we want ot display (`to_show`), the 2D eye coordinates are converted to a 3D position. This is followed by filtering and setting the OpenGL window's projection according to the filtered coordinate values. As a final step, the face tracking image is shown on a separate window (the escape key press is also monitored when this window is is focus) and the detailed loop execution times are printed ot the console.
+
+``` python
+while True:
+    start_time = time.time()
+
+    frame = videoSource.get_frame()
+    to_show = frame.copy()
+
+    frame_capture_time = time.time()
+
+    bbox, landmarks = faceDetectorAndLocalizer.detect_and_localize(frame.copy())
+
+    (x0, y0, x1, y1) = bbox
+    to_show = cv2.blur(to_show, (400, 400))
+    to_show[y0:y1, x0:x1, :] = frame[y0:y1, x0:x1, :]
+    color = (0, 255, 0)
+    cv2.rectangle(to_show, (x0, y0), (x1, y1), color, 2)
+
+    for i in range(5):
+        cv2.circle(img=to_show, center=(landmarks[2*i], landmarks[2*i+1]), radius=2, color=(255, 255, 255), thickness=2)
+
+    estimated_coordinates = webCamTo3D.convert(landmarks[0:4])
+    (X, Y, Z) = estimated_coordinates
+
+    X = xSmoother(X)
+    Y = ySmoother(Y)
+    Z = zSmoother(Z)
+
+    view.set_frustum(X, Y, Z)
+
+    to_show = cv2.resize(to_show, (round(CAM_WIDTH / 2), round(CAM_HEIGHT / 2)))
+
+    cv2.imshow('Face tracking', to_show)
+    midtime = time.time()
+
+    k = cv2.waitKey(1) & 0xff
+    if k == 27:  # press 'ESC' to quit
+        videoSource.release()
+        cv2.destroyAllWindows()
+        sys.exit()
+
+    endtime = time.time()
+    print("Total time:", round((endtime - start_time) * 1000), "ms",
+          "Capture part", round((frame_capture_time - start_time) * 1000), "ms",
+          "Calculation part:", round((midtime - frame_capture_time) * 1000), "ms",
+          "Draw&Wait part:", round((endtime - midtime) * 1000), "ms")
+```
+
+
+## Running the code
+
+Now we are ready to run the code. You can find the full [source code linked to the guide](https://github.com/ndaneil/interactive-3d-screen). Make sure to select the ryzenai conda environment and run the script.
+
+
 
 ## Summary and conclusions

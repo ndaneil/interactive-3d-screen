@@ -250,12 +250,10 @@ class ExponentialMovingAverage:
 class GLWidget(QOpenGLWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.angle_x = 0
-        self.angle_y = 0
         self.coord_x = 0
         self.coord_y = 0
         self.coord_z = 0
-        self.last_pos = None
+
         self.scene_idx = 1
         self.num_scenes = 6
         self.animation_idx = 0
@@ -294,12 +292,12 @@ class GLWidget(QOpenGLWidget):
         gluLookAt(0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
 
         glFrustum(x_offset, x_offset - 1, y_offset, y_offset - self.h_w_ratio, z, 1000)
+        glDepthRange(1.0, 0.0)
         self.draw_scene()
 
     def draw_scene(self):
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        glDisable(GL_DEPTH_TEST)
 
         if self.scene_idx == 0:  # Simple 3D rectangles
             glBegin(GL_QUADS)
@@ -575,8 +573,6 @@ videoSource = VideoSource()
 webCamTo3D = WebCamTo3DCoordinates()
 
 faceDetectorAndLocalizer = FaceDetectorAndLocalizer()
-
-in_fullscreen = False
 
 while True:
     start_time = time.time()
