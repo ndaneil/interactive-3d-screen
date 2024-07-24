@@ -7,14 +7,14 @@ Our monitors and laptop screens are 2D surfaces. They could provide an illusion 
 
 Recently I saw [an attempt by Asus](https://www.asus.com/content/asus-spatial-vision-technology/) to make the laptop's screen 3D by using lenticular lenses and eye tracking. Lenticular lenses and other [stereoscopic approaches](https://en.wikipedia.org/wiki/Stereoscopy) create the illusion of depth by showing different images to the left and right eyes. The downside of this approach is that it uses specialized components like lenses which are not present in current displays. 
 
-I wanted to create a 3D display that did not require any specialized hardware, utilizing only the advances in ML, AI and computation performance improvements achieved in recent years. By using a webcam and advanced head tracking, it could be possible to accurately determine the head's position relative the the display. Then the display's perspective could be adjusted to simulate as if it was viewed from that position. This approach relies on the head's movement and drawing 3D objects from different perspectives to achieve the illusion of depth.
+I wanted to create a 3D display that did not require any specialized hardware, utilizing only the advances in ML, AI and performance improvements achieved in recent years. By using a webcam and advanced head tracking, it could be possible to accurately determine the head's position relative the the display. Then, the display's perspective could be adjusted to simulate as if it was viewed from that position. This approach relies on the head's movement and drawing 3D objects from different perspectives to achieve the illusion of depth.
 
 It turns out I'm not the only one who thought of this. In fact, I found multiple projects utilizing the approach of estimating the eye's position relative to the screen and then changing the content based on that:
 
  - For a kiosk display: [https://medium.com/try-creative-tech/off-axis-projection-in-unity-1572d826541e](https://medium.com/try-creative-tech/off-axis-projection-in-unity-1572d826541e)
- - For iPhone: [https://www.anxious-bored.com/blog/2018/2/25/theparallaxview-illusion-of-depth-by-3d-head-tracking-on-iphone-x](https://www.anxious-bored.com/blog/2018/2/25/theparallaxview-illusion-of-depth-by-3d-head-tracking-on-iphone-x)
- - For iPad: [https://www.youtube.com/watch?v=bBQQEcfkHoE](https://www.youtube.com/watch?v=bBQQEcfkHoE)
- - For Android: [https://github.com/kocosman/DepthIllusionWithARCore](https://github.com/kocosman/DepthIllusionWithARCore)
+ - For iPhones: [https://www.anxious-bored.com/blog/2018/2/25/theparallaxview-illusion-of-depth-by-3d-head-tracking-on-iphone-x](https://www.anxious-bored.com/blog/2018/2/25/theparallaxview-illusion-of-depth-by-3d-head-tracking-on-iphone-x)
+ - For iPads: [https://www.youtube.com/watch?v=bBQQEcfkHoE](https://www.youtube.com/watch?v=bBQQEcfkHoE)
+ - For Android devices: [https://github.com/kocosman/DepthIllusionWithARCore](https://github.com/kocosman/DepthIllusionWithARCore)
  - For Wii: [http://johnnylee.net/projects/wii/](http://johnnylee.net/projects/wii/)
 
 Some of these examples are not very recent. The approach used to change a 3D view's perspective to create the illusion of 3D is called off-axis projection. 
@@ -23,11 +23,11 @@ Let's see next how such an interactive 3D screen would work.
 
 ## How to create a 3D screen
 
-The solution consists of two major parts: detecting the orientation of the face relative to the screen and changing the 3D projection based on the orientation. In more granular steps, the solution consists of the following steps:
+The solution consists of two major parts: detecting the position of the face relative to the screen and changing the 3D projection based on the position of the face. In more granular steps, the solution consists of the following steps:
 
 <p align="center"><img src="./images/steps.png" width="80%"></p>
 
-An image is recorded using a webcam. Then the face of the person is detected on the frame, followed by the localization of the face landmarks, which includes the eyes. Face detection can be achieved with neural networks, here is where I will utilize AMD's Ryzen AI technology. Then the eyes locations are transformed to 3D coordinates relative to the display. Finally, there is a need for signal smoothing before modifying the projection to match the viewer's orientation. 
+An image is recorded using a webcam. Then the face of the person is detected on the frame, followed by the localization of the face landmarks, which includes the eyes. Face detection can be achieved with neural networks, here is where I will utilize AMD's Ryzen AI technology. Then the eye positions are transformed to 3D coordinates relative to the display. Finally, there is a need for signal smoothing before modifying the projection to match the viewer's orientation. 
 
 To preserve the illusion of depth, all steps of the process need to be executed within milliseconds. Ideally all of the steps should be executed in less than 33ms to render at least 30 frames per second.
 
@@ -37,7 +37,7 @@ Let's get started with the coding!
 
 ## Setting up Ryzen AI acceleration
 
-If you have a desktop or laptop with a recent AMD Ryzen CPU, you can utilize the power of Ryzen AI acceleration to speed up the face detection and face landmark generation. AMD has documented this process well both in [this Hackster guide](https://www.hackster.io/512342/amd-pervasive-ai-developer-contest-pc-ai-study-guide-6b49d8) and [on their website](https://ryzenai.docs.amd.com/en/latest/inst.html). Following the guides, I only encountered one issue with the conda environment installing NumPy 2.0.0 which is [incompatible with some of the other packages](https://stackoverflow.com/questions/78636947/a-module-that-was-compiled-using-numpy-1-x-cannot-be-run-in-numpy-2-0-0-as-it-ma). This was resolved by installing NumPy version 1.26.4 using the following command:
+If you have a desktop or laptop with a recent AMD Ryzen CPU, you can utilize the power of Ryzen AI acceleration to speed up the face detection and face landmark generation. AMD has documented this process well both in [this Hackster guide](https://www.hackster.io/512342/amd-pervasive-ai-developer-contest-pc-ai-study-guide-6b49d8) and [on their website](https://ryzenai.docs.amd.com/en/latest/inst.html). Following the guides, I only encountered one issue with the conda environment installed NumPy 2.0.0 which is [incompatible with some of the other packages](https://stackoverflow.com/questions/78636947/a-module-that-was-compiled-using-numpy-1-x-cannot-be-run-in-numpy-2-0-0-as-it-ma). This was resolved by installing NumPy version 1.26.4 using the following command:
 
 ```
 pip install numpy==1.26.4
@@ -60,7 +60,7 @@ For accurate estimations, I recommend using a high-quality webcam. For this proj
 
 ### Starting to code
 
-To get started with the image capture part, first, there are a couple of external libraries we need to import. Most of them are already installed in the Ryzen AI conda environment but there are three which need to be installed manually using pip: the QT Framework's python module, OpenCV and OpenGL's python wrapper.
+To get started with the image capture part, first, there are a couple of external libraries we need to import. Most of them are already installed with the Ryzen AI conda environment but there are three which need to be installed manually using pip: the QT Framework's python module, OpenCV and OpenGL's python wrapper.
 ```
 pip install PySide6
 pip install opencv-python
@@ -106,7 +106,7 @@ WEBCAM_PREVIEW_DOWNSCALING = 2
 
 The webcam's resolution will be used during image capturing and coordinate calculation. The distance between the pupils will be used as a reference to estimate the distance of the face from the screen. The monitor's dimensions are also needed for calculating the projection. I used a 28 inch 4K monitor. I found that OpenCV can be slow to render the Webcam preview window, so I added the option to downscale the displayed webcam image to speed up the execution. 
 
-Now let's see the code that handles the webcam image capturing. To keep everything modular, I organized each step of the pipeline into its own class. For handling the webcam, I created the VideoSource class:
+Now let's see the code that handles the webcam image capturing. To keep everything modular, I organized each step of the pipeline into its own class. For handling the webcam, I created the `VideoSource` class:
 
 ``` python
 class VideoSource:
@@ -124,7 +124,7 @@ class VideoSource:
         self.cap.release()
 ```
 
-The code is really simple, it sets up the video capture instance for the connected webcam. The `0` in the VideoCapture's constructor parameter notes the index of the webcam in the list of video devices. If multiple video devices are connected to your computer, you may need to change that so that the right camera is used. After creating the video capture instance, the resolution of the expected images are set and video compression is enabled. This reduces the bandwidth needed to send the data from the webcam to the computer, speeding up the process.
+The code is really simple, it sets up the video capture instance for the connected webcam. The `0` in the VideoCapture's constructor parameter is the index of the webcam in the list of video devices. If multiple video devices are connected to your computer, you may need to change that so that the right camera is used. After creating the video capture instance, the resolution of the expected images are set and video compression is enabled. This reduces the bandwidth needed to send the data from the webcam to the computer, speeding up the process.
 
 There are two additional functions, one for capturing an image from the webcam (`get_frame()`) and one for cleaning up the video capture instance which we need to call before our program stops.
 
@@ -299,11 +299,11 @@ The output of the model has three parts. The first one contains the bounding box
         return (np.rint(box)).astype(int), (np.rint(landms)).astype(int)
 ```
 
-After selecting the predictions belonging to the highest score (`loc = loc.squeeze(0)[max_ind, :]`, `landms = landms.squeeze(0)[max_ind, :]`) the bounding box and landmark outputs are converted back to the original webcam image's coordinates. Then the coordinates are rounded are returned.
+After selecting the predictions belonging to the highest score (`loc = loc.squeeze(0)[max_ind, :]`, `landms = landms.squeeze(0)[max_ind, :]`) the bounding box and landmark outputs are converted back to the original webcam image's coordinates. Then the coordinates are rounded and returned.
 
 ## Eye position to relative coordinates
 
-Converting 2D pixel coordinates to 3D real-world coordinates is hard and complicated sine we need to make at least one assumption due to the lack of depth information. Additionally, the camera captures a distorted image, so we have to take that into account. If you are interested in the math, I recommend OpenCV's article on [Camera calibration and 3D Reconstruction](https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html). Essentially, we need to determine the principal point (`cx`, `cy`) and focal lengths (`fx`, `fy`) of the camera. For the Logitech C920 I use, I have found these values in an open source project's, [3dmcap's github repo](https://github.com/thsant/3dmcap/blob/master/resources/Logitech-C920.yaml). For the estimation to be accurate, the depth estimation is also needed. For that, I have recorded the pixel distance of my two eyes at different distances from the camera. I could fit a hyperbola to the recorded data points (eye-to-screen distance (cm) as the function of eye-to-eye pixel distance):
+Converting 2D pixel coordinates to 3D real-world coordinates is hard and complicated since we need to make at least one assumption due to the lack of depth information. Additionally, the camera captures a distorted image, so we have to take that into account. If you are interested in the math, I recommend OpenCV's article on [Camera calibration and 3D Reconstruction](https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html). Essentially, we need to determine the principal point (`cx`, `cy`) and focal lengths (`fx`, `fy`) of the camera. For the Logitech C920 webcam I used, I have found these values in an open source project's, [3dmcap's github repo](https://github.com/thsant/3dmcap/blob/master/resources/Logitech-C920.yaml). For the estimation to be accurate, the depth estimation is also needed. For that, I have recorded the pixel distance of my two eyes at different distances from the camera. I could fit a hyperbola to the recorded data points (eye-to-screen distance (cm) as the function of eye-to-eye pixel distance):
 
 <p align="center"><img src="./images/pixels-to-distance.png" width="80%"></p>
 
@@ -311,7 +311,7 @@ Converting 2D pixel coordinates to 3D real-world coordinates is hard and complic
 estimated_eye_distance_cm = 5000.0 / (eye_distance - 40) + 10
 ```
 
-With this function, I could estimate the distance of my head from the webcam and use that to estimate real-world X, Y and Z coordinates in meters of the midpoint between the eyes relative to the display:
+With this function, I could estimate the distance of my head from the webcam and use that to estimate real-world X, Y and Z coordinates (in meters) of the midpoint between the eyes relative to the display:
 
 ``` python
 class WebCamTo3DCoordinates:
@@ -339,7 +339,6 @@ class WebCamTo3DCoordinates:
 
         real_world_estimated = self.pixel_to_world(eye_midpoint_x, eye_midpoint_y, estimated_eye_distance_m)
         return real_world_estimated
-
 ```
 
 ## Movement signal filtering
@@ -380,7 +379,6 @@ If you are interested in more complicated projections, I recommend Robert Kooima
 To get started with coding a 3D visualization, we need to create a new class which inherits from `QOpenGLWidget`. This class will contain our OpenGL code. In the constructor, we initialize the variables we will use to store the coordinates of the viewer's eye midpoint (`coord_x`, `coord_y`, `coord_z`). We will create multiple scenes we can switch between, so we need to store which scene is currently displayed (`scene_idx`) as well as the total number of scenes (`num_scenes`). Finally, we need a variable we will use for animations (`animation_idx`) and the aspect ratio of the display (`h_w_ratio`):
 
 ``` python
-
 class GLWidget(QOpenGLWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -425,10 +423,9 @@ Our widget will need to receive updated coordinate information from the outside 
         self.scene_idx = (self.scene_idx + 1) % self.num_scenes
 ```
 
-Finally, we need to implement the most important inherited function, `paintGL`. Here, we calculate the frustum offset based on the real-world coordinates of the viewer and the monitor's size. The left value will be the `x_offset` variable we calculate, the right will be `x_offset-1`. Note that if you were to substitute the edge coordinates of the display (`MONITOR_SCREEN_WIDTH / 2` and `-MONITOR_SCREEN_WIDTH / 2`) you would get (0, -1) and (1,0), right angled triangles along the x-z plane. The calculation of the `y_offset` is similar, the only difference there is that the extent of the frustum is scaled by the aspect ratio. Finally, the z coordinate will determine the near plane, that's how I chose to control frustum's flatness. As the person gets closer to the screen, the projection will show more depth. The depth range needs to be inverted due to the other parameters of the frustum. Finally, the actual scene drawing part will happen inside the `draw_scene()` function.
+Finally, we need to implement the most important inherited function, `paintGL`. Here, we calculate the frustum offset based on the estimated real-world coordinates of the viewer and the monitor's size. The left value will be the `x_offset` variable we calculate, the right will be `x_offset-1`. Note that if you were to substitute the edge coordinates of the display (`MONITOR_SCREEN_WIDTH / 2` and `-MONITOR_SCREEN_WIDTH / 2`) you would get (0, -1) and (1,0), right angled triangles along the x-z plane. The calculation of the `y_offset` is similar, the only difference there is that the extent of the frustum is scaled by the aspect ratio. Finally, the z coordinate will determine the near plane, that's how I chose to control frustum's flatness. As the person gets closer to the screen, the projection will show more depth. The depth range needs to be inverted due to the other parameters of the frustum. 
 
 ``` python
-
     def paintGL(self):
         x_offset = 0.5 + (-self.coord_x / (MONITOR_SCREEN_WIDTH / 2)) / 2
         y_offset = self.h_w_ratio/2 + (-self.coord_y / (MONITOR_SCREEN_HEIGHT / 2)) / 2
@@ -443,7 +440,7 @@ Finally, we need to implement the most important inherited function, `paintGL`. 
         self.draw_scene()
 ```
 
-To draw multiple shapes which may overlap when displayed, we need to enable blending between them and define how it should be achieved. After that, we can start drawing. 
+Finally, the actual scene drawing part will happen inside the `draw_scene()` function. To draw multiple shapes which may overlap when displayed, we need to enable blending between them and define how it should be achieved. After that, we can start drawing. 
 
 I am new to OpenGL, so I kept the demo to drawing simple shapes: quads and triangles. You can find the full [source code linked to the guide](https://github.com/ndaneil/interactive-3d-screen), so I won't cover every part of the code responsible for drawing the scenes. There are two helper functions I created, one to draw a checkerboard background (`draw_checkerboard_box`) and one to draw octahedrons (`draw_octahedron`). Both are available in the source code. Scene 1 is simple the checkerboard. Scene 2 adds triangles arranged along three axes, each containing ten triangles. For openGL, first `glBegin` needs to be called with the shape type, then shapes can be drawn, finally `glEnd()` needs to be called. For triangles, I needed to set the color and the three vertices for each triangle. 
 
@@ -477,13 +474,11 @@ I am new to OpenGL, so I kept the demo to drawing simple shapes: quads and trian
             glEnd()
         elif self.scene_idx == 3:  # 3D checkerboard box with triangles #2
             # ...
-
 ```
 
 Scene 3 is similar to scene 2. Scene 4 adds rotation to the triangles. Here is where we utilize the `animation_idx` variable to represent the rotation angle of the triangles. To draw the rotated coordinates, I created a [rotation matrix](https://en.wikipedia.org/wiki/Rotation_matrix) (`rotmat`) and multiplied the original vectors with that. Finally, for scene 5, I drew animated rotating octahedrons.
 
 ``` python
-
         elif self.scene_idx == 4:  # 3D checkerboard box with triangles #3
             self.draw_checkerboard_box()
             glBegin(GL_TRIANGLES)
@@ -572,7 +567,7 @@ faceDetectorAndLocalizer = FaceDetectorAndLocalizer()
 
 Next, we need a while loop. We will measure the execution time too, so there will be calls to `time.time()`. First, we capture a frame from the video source. Then, we detect face and landmarks, returning the bounding box and landmark coordinates. Then we can crop the face and blur the rest of the background. This will be used to visualize the face detection on a separate window. 
 
-After drawing the landmarks on the image canvas we want to display (`to_show`), the 2D eye coordinates are converted to the estimated 3D position. This is followed by filtering thr X, Y and Z coordinate changes. Then, the OpenGL window's projection is adjusted according to the filtered coordinate values. As a final step, the face tracking image is shown on a separate window (the escape key press is also monitored when this window is is focus) and the detailed loop execution times are printed to the console.
+After drawing the landmarks on the image canvas we want to display (`to_show`), the 2D eye coordinates are converted to the estimated 3D position. This is followed by filtering the X, Y and Z coordinate changes. Then, the OpenGL window's projection is adjusted according to the filtered coordinate values. As a final step, the face tracking image is shown on a separate window (the escape key press is also monitored when this window is is focus) and the detailed loop execution times are printed to the console.
 
 ``` python
 while True:
@@ -621,11 +616,11 @@ while True:
           "Draw&Wait part:", round((endtime - midtime) * 1000), "ms")
 ```
 
-That's all! We have completed the coding part. Let's see how our program runs!
+That's all! 🎉 We have completed the coding part. Let's see how our program runs!
 
 ## Running the code
 
-Now we are ready to run the code. You can find the full [source code linked to the guide](https://github.com/ndaneil/interactive-3d-screen). Make sure to select the ryzenai conda environment and run the script. You should see the checkerboard pattern in a large window and the webcam image with face detection on a separate, smaller window. You can use the space key to switch between the scenes and you can use the `f` key to enter fullscreen mode.
+Now we are ready to run the code. You can find the full [source code linked to the guide](https://github.com/ndaneil/interactive-3d-screen). Make sure to activate the ryzenai conda environment and run the script. You should see the checkerboard pattern in a large window and the webcam image with face detection on a separate, smaller window. You can use the space key to switch between the scenes and you can use the `f` key to enter fullscreen mode.
 
 <p align="center"><img src="./images/demo-working.png" width="80%"></p>
 
