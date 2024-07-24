@@ -1,5 +1,7 @@
 # Interactive, AI-powered 3D screen
 
+<p align="center"><img src="./images/cover.png" width="80%"></p>
+
 Our monitors and laptop screens are 2D surfaces. They could provide an illusion of a 3D view, but this is seldom utilized. On iPhones, [the parallax effect provided a 3D illusion](https://www.youtube.com/watch?v=gurpi1JBpKM), though it was removed in iOS 16. I remember seeing some 3D illusions a long time ago, but none of these ideas got any traction and we got used to the fact that our displays are merely flat surfaces. I saw a [recent attempt by Asus](https://www.asus.com/content/asus-spatial-vision-technology/) to make the laptop's screen 3D by using lenticular lenses and eye tracking. Lenticular lenses and other [stereoscopic approaches](https://en.wikipedia.org/wiki/Stereoscopy) create the illusion of depth by showing different images to the left and right eyes. The downside of this approach is that it uses specialized components like lenses which are not present in current displays. 
 
 In wanted to create a 3D display that did not require any specialized hardware, utilizing only the advances in ML and AI and computation performance improvements achieved in the recent years. By using a webcam and advanced head tracking, it could be possible to accurately determine the head's position relative the the display. Then the display's image could be changed to reflect as if it was viewed from that position. This approach relies on the head's movement (drawing 3D objects from different perspectives) to achieve the illusion of depth.
@@ -610,7 +612,34 @@ while True:
 
 ## Running the code
 
-Now we are ready to run the code. You can find the full [source code linked to the guide](https://github.com/ndaneil/interactive-3d-screen). Make sure to select the ryzenai conda environment and run the script.
+Now we are ready to run the code. You can find the full [source code linked to the guide](https://github.com/ndaneil/interactive-3d-screen). Make sure to select the ryzenai conda environment and run the script. You should see the checkerboard pattern in a large window and the webcam image with face detection on a separate, smaller window. You can use the space key to switch between the scenes and you can use the `f` key to enter fullscreen mode.
+
+<p align="center"><img src="./images/demo-working.png" width="80%"></p>
+
+On my UM 790 Pro Mini PC, the loop execution took between 30 and 40ms, so for the 3D visualization I got 25-33 FPS. There are further improvement possibilities on the webcam image capture side, like using a separate thread to make ensure there is always a frame available when running the main loop. 
+
+I have created a couple of demo videos to show the program in action. The first one shows the program running on the PC: 
+
+[![pc demo video](./images/yt-img-demo.jpg)](https://youtu.be/KFc5EAXHat0)
+
+
+The second video demonstrates the robustness of the face tracking model:
+
+[![face tracking demo](./images/yt-img-facetracking.jpg)](https://youtu.be/7E3ihFjl_Mw)
+
+
+The final demo shows how the screen works from the viewer's perspective. Sadly, here my phone's video stabilization interfered with the 3D effect. The results are much better in person than on the video.
+
+[![main demo video](./images/yt-img-maindemo.jpg)](https://youtu.be/qD47s6MBjw0)
+
+
+
+
+
+
+
+
+
 
 
 
