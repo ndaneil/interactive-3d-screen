@@ -633,14 +633,8 @@ The final demo shows how the screen works from the viewer's perspective. Sadly, 
 [![main demo video](./images/yt-img-maindemo.jpg)](https://youtu.be/qD47s6MBjw0)
 
 
+## A note on licenses
 
+All third-party brands (including brand names, logos, trademarks and icons) remain the property of their respective owners. 
 
-
-
-
-
-
-
-
-
-## Summary and conclusions
+[AMD's retinaface model](https://huggingface.co/amd/retinaface) and the accompanying source code they published are licensed under [Apache 2.0](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md).
